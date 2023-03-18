@@ -11,7 +11,6 @@ contract BlindAuction {
     address public Owner;
     address public Admin;
     address public winner;
-    bool public AuctionCancelled;
 
     mapping(address => Bid) public Bids;
 
@@ -35,7 +34,6 @@ contract BlindAuction {
 
     constructor(uint256 _AuctionDuration, address _Admin){
         AuctionDuration = _AuctionDuration;
-        Owner = tx.origin;
         Admin = _Admin;
     }
 
@@ -58,7 +56,7 @@ contract BlindAuction {
     }
 
     function createAuction(address _nftContract,uint _tokenId) public {
-        // require (msg.sender == Owner, "Only owner can start auction");
+        Owner = msg.sender;
         require(IERC721(_nftContract).ownerOf(_tokenId) == msg.sender, "Only the owner of an NFT can auction it");
         ItemtobeAuctioned = AuctionedItem(_nftContract, _tokenId, msg.sender);
         AuctionStart = block.timestamp;
@@ -70,28 +68,15 @@ contract BlindAuction {
     function getWinner() public returns (address _winner) {
         require(msg.sender == Admin, "Only Admin can call this function");
         _winner;
-        // address[] memory _winners = new address[](Bidders.length);
-        address[] memory _winners = new address[](2);
-        _winners[0] = address(0);
         for (uint i; i < Bidders.length; i++){
-            if (Bids[Bidders[i]].Amount == Bids[_winners[0]].Amount){
-                _winners[1] = Bidders[i];
+            if (Bids[Bidders[i]].Amount > Bids[_winner].Amount){
+                _winner = Bidders[i];
             } 
-            if (Bids[Bidders[i]].Amount > Bids[_winners[0]].Amount){
-                // _winners = new address[](Bidders.length - i);
-                _winners = new address[](2);
-                _winners[0] = Bidders[i];
-            } 
-        }
-        if (_winners[1] != address(0)){
-            revert("We have a tie");
-        }
-        if (_winners.length == 1){
-            winner = _winners[0];
         }
         if (_winner == address(0)){
             cancelAuction();
         }
+        winner = _winner;
     }
 
 
@@ -110,18 +95,10 @@ contract BlindAuction {
 
     function cancelAuction() public {
         require(msg.sender == Admin, "Only Admin can cancel an auction");
-        AuctionCancelled = true;
+        AuctionEnd = block.timestamp;
         IERC721(ItemtobeAuctioned.nftAddress).transferFrom(address(this), ItemtobeAuctioned.owner, ItemtobeAuctioned.tokenId);
     }
 
-    function reclaimFunds() public payable {
-        require(block.timestamp > AuctionEnd);
-        require(AuctionCancelled, "Auction was not cancelled");
-        uint bid = Bids[msg.sender].Amount;
-        Bids[msg.sender].Amount = 0;
-        (bool success,) = payable(address(msg.sender)).call{value: bid}("");
-        require(success, "Failed to send funds");
-    }
 
     fallback() external payable {}
 

@@ -15,7 +15,7 @@ interface IBlindAuction {
     function getWinner() external returns (address _winner);
 
 
-    function claimItem() external;
+    function claimItem() payable external;
 
     function withdrawFunds() external;
 
